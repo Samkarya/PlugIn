@@ -38,6 +38,30 @@
             box-shadow: 0 0 10px rgba(0,0,0,0.2);
             z-index: 1000;
             max-width: 200px;
+            transition: opacity 0.3s, transform 0.3s;
+        }
+        
+        .control-panel.hidden {
+            opacity: 0;
+            transform: translateX(110%);
+            pointer-events: none;
+        }
+        
+        .toggle-panel {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 999;
+            background: white;
+            border-radius: 3px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.2);
+            width: 30px;
+            height: 30px;
+            text-align: center;
+            line-height: 30px;
+            cursor: pointer;
+            font-weight: bold;
+            display: none;
         }
         
         .control-panel h3 {
@@ -61,6 +85,10 @@
             width: 100%;
             padding: 5px;
             box-sizing: border-box;
+        }
+        
+        input[type="checkbox"] {
+            margin-right: 5px;
         }
         
         button {
@@ -114,6 +142,11 @@
                 <label for="radius">Radius (meters):</label>
                 <input type="number" id="radius" min="50" max="10000" value="500">
             </div>
+            <div class="form-group">
+                <label for="auto-send">
+                    <input type="checkbox" id="auto-send"> Auto-send data
+                </label>
+            </div>
             <div class="button-group">
                 <button id="find-me">Find My Location</button>
                 <button id="apply">Apply</button>
@@ -126,14 +159,26 @@
             </div>
             <div id="status-message"></div>
         </div>
+        <div class="toggle-panel" id="toggle-panel">☰</div>
     </div>
 
     <!-- Leaflet JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
     
     <script>
+        // Configuration
+        let config = {
+            autoSend: false,
+            controlPanelVisible: true,
+            defaultLocation: {
+                lat: 51.505,
+                lng: -0.09,
+                radius: 500
+            }
+        };
+        
         // Initialize the map
-        const map = L.map('map').setView([51.505, -0.09], 13);
+        const map = L.map('map').setView([config.defaultLocation.lat, config.defaultLocation.lng], 13);
         
         // Add the OpenStreetMap tiles
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -145,13 +190,14 @@
         let marker = null;
         let circle = null;
         let selectedLocation = {
-              lat: 20.0,    // 20°00′ N
-              lng: 77.0,    // 77°00′ E
-              radius: 500   // in meters
+            lat: config.defaultLocation.lat,
+            lng: config.defaultLocation.lng,
+            radius: config.defaultLocation.radius
         };
-
         
         // DOM elements
+        const controlPanel = document.querySelector('.control-panel');
+        const togglePanel = document.getElementById('toggle-panel');
         const radiusInput = document.getElementById('radius');
         const selectedLatEl = document.getElementById('selected-lat');
         const selectedLngEl = document.getElementById('selected-lng');
@@ -159,12 +205,26 @@
         const applyButton = document.getElementById('apply');
         const findMeButton = document.getElementById('find-me');
         const statusMessage = document.getElementById('status-message');
+        const autoSendCheckbox = document.getElementById('auto-send');
+        
+        // Toggle panel visibility
+        togglePanel.addEventListener('click', function() {
+            controlPanel.classList.toggle('hidden');
+            config.controlPanelVisible = !controlPanel.classList.contains('hidden');
+            
+            // If showing the panel, update toggle button to indicate "hide"
+            if (config.controlPanelVisible) {
+                togglePanel.innerHTML = "☰";
+            } else {
+                togglePanel.innerHTML = "⚙";
+            }
+        });
         
         // Update radius when input changes
         radiusInput.addEventListener('input', function() {
             let radius = parseInt(this.value);
             if (isNaN(radius) || radius < 50) radius = 50;
-            if (radius > 50000) radius = 50000;
+            if (radius > 10000) radius = 10000;
             
             selectedLocation.radius = radius;
             radiusDisplayEl.textContent = radius;
@@ -173,6 +233,17 @@
             if (circle) {
                 circle.setRadius(radius);
             }
+            
+            // Auto-send if enabled
+            if (config.autoSend) {
+                sendDataToParent();
+            }
+        });
+        
+        // Toggle auto-send
+        autoSendCheckbox.addEventListener('change', function() {
+            config.autoSend = this.checked;
+            showStatusMessage(config.autoSend ? 'Auto-send enabled' : 'Auto-send disabled');
         });
         
         // Function to update marker and circle
@@ -202,6 +273,11 @@
                 .on('dragend', function() {
                     const position = marker.getLatLng();
                     updateLocationDisplay(position.lat, position.lng, selectedLocation.radius);
+                    
+                    // Auto-send if enabled
+                    if (config.autoSend) {
+                        sendDataToParent();
+                    }
                 });
             
             circle = L.circle([lat, lng], {
@@ -216,6 +292,11 @@
             
             // Show status message
             showStatusMessage('Location updated');
+            
+            // Auto-send if enabled
+            if (config.autoSend) {
+                sendDataToParent();
+            }
         }
         
         // Handle map clicks to update location
@@ -274,6 +355,34 @@
                     updateLocationDisplay(lat, lng, radius || selectedLocation.radius);
                     showStatusMessage('Location set from parent');
                 }
+                // Handle config changes from parent
+                else if (message.type === 'CONFIGURE_LOCATION_PICKER') {
+                    if (message.data.hasOwnProperty('autoSend')) {
+                        config.autoSend = Boolean(message.data.autoSend);
+                        autoSendCheckbox.checked = config.autoSend;
+                        showStatusMessage(config.autoSend ? 'Auto-send enabled' : 'Auto-send disabled');
+                    }
+                    
+                    if (message.data.hasOwnProperty('controlPanelVisible')) {
+                        config.controlPanelVisible = Boolean(message.data.controlPanelVisible);
+                        if (config.controlPanelVisible) {
+                            controlPanel.classList.remove('hidden');
+                            togglePanel.innerHTML = "☰";
+                            togglePanel.style.display = "none";
+                        } else {
+                            controlPanel.classList.add('hidden');
+                            togglePanel.innerHTML = "⚙";
+                            togglePanel.style.display = "block";
+                        }
+                    }
+                    
+                    showStatusMessage('Configuration updated');
+                }
+                // Force send current location data
+                else if (message.type === 'REQUEST_LOCATION_DATA') {
+                    sendDataToParent();
+                    showStatusMessage('Sent location data to parent');
+                }
             } catch (error) {
                 console.error('Error processing message:', error);
             }
@@ -295,13 +404,33 @@
                 statusMessage.textContent = '';
             }, 3000);
         }
-
+        
+        // Check if iframe is in a small container
+        function checkContainerSize() {
+            const containerWidth = window.innerWidth;
+            const containerHeight = window.innerHeight;
+            
+            // If container is small, auto-hide the control panel
+            if (containerWidth < 400 || containerHeight < 300) {
+                config.controlPanelVisible = false;
+                controlPanel.classList.add('hidden');
+                togglePanel.style.display = "block";
+                togglePanel.innerHTML = "⚙";
+            }
+        }
+        
+        // Run on load
+        window.addEventListener('load', checkContainerSize);
+        
         // Initialize with default location
         updateLocationDisplay(selectedLocation.lat, selectedLocation.lng, selectedLocation.radius);
 
         // Notify parent that we're ready
         window.parent.postMessage({
-            type: 'LOCATION_PICKER_READY'
+            type: 'LOCATION_PICKER_READY',
+            data: {
+                capabilities: ['autoSend', 'hidePanel', 'setLocation', 'getLocation']
+            }
         }, '*');
     </script>
 </body>
