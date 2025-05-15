@@ -4,8 +4,8 @@
 
 Users can click to select a location, drag a marker, use their device's geolocation, and define an adjustable radius with visual feedback. Communication with the parent page is handled seamlessly via the `postMessage` API.
 
-![Location Picker Pro Screenshot](https://samkarya.github.io/PlugIn/LocationPicker/screenshot.png) 
-<!-- TODO: Replace with an actual, good-looking screenshot URL -->
+[Location Picker (PREVIEW)](https://samkarya.github.io/PlugIn/LocationPicker/) 
+
 
 ## ✨ Features
 
