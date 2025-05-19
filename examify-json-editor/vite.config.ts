@@ -1,17 +1,17 @@
-// vite.config.ts
+// PlugIn/examify-json-editor/vite.config.ts
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// Replace 'your-repo-name' with your GitHub repository name
-const repoName = 'PlugIn'; // Or fetch from package.json if you prefer
+const githubRepoName = 'PlugIn';
+const appSubdirectory = 'examify-json-editor'; // The directory you want the app to live in on GitHub Pages
 
 export default defineConfig(({ command }) => {
-  const base = command === 'build' ? `/${repoName}/` : '/';
+  const base = command === 'build' ? `/${githubRepoName}/${appSubdirectory}/` : '/';
   return {
     plugins: [react()],
-    base: base, // Set the base path for the build
+    base: base, // Will be /PlugIn/examify-json-editor/ for builds
     build: {
-      outDir: 'dist', // This is usually the default
+      outDir: 'dist',
     },
   };
 });
