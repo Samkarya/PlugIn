@@ -3,7 +3,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 // Replace 'your-repo-name' with your GitHub repository name
-const repoName = '/PlugIn/examify-json-editor'; // Or fetch from package.json if you prefer
+const repoName = 'PlugIn/examify-json-editor'; // Or fetch from package.json if you prefer
 
 export default defineConfig(({ command }) => {
   const base = command === 'build' ? `/${repoName}/` : '/';
